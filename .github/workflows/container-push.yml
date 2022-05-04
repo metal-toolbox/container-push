@@ -1,0 +1,186 @@
+name: Container Push
+
+on:
+  workflow_call:
+    inputs:
+      name:
+        description: 'A short name for the container image. Will be used to create the image path and set the title.'
+        required: true
+        type: string
+      tag:
+        description: 'Container image tag to push. Normally it will be the GITHUB_REF_NAME env variable'
+        required: true
+        type: string
+      dockerfile_path:
+        description: 'The relative path to the Dockerfile to build.'
+        default: 'Dockerfile'
+        required: false
+        type: string
+      build_context:
+        description: 'The path to the context to build the container from.'
+        default: '.'
+        required: false
+        type: string
+      licenses:
+        description: 'The licenses under which the container is distributed.'
+        default: 'Apache-2.0'
+        required: false
+        type: string
+      vendor:
+        description: 'The vendor of the container.'
+        default: 'Equinix, Inc.'
+        required: false
+        type: string
+
+env:
+  COSIGN_EXPERIMENTAL: 1
+
+jobs:
+  container:
+    runs-on: ubuntu-latest
+
+    permissions:
+      packages: write
+
+    outputs:
+      image-digest: ${{ steps.container_info.outputs.image-digest }}
+      image-tags: ${{ steps.container_info.outputs.image-tags }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3.0.2
+
+      - name: Login to ghcr.io
+        uses: docker/login-action@v1.14.1
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build container images
+        run: |
+          revision="$(git rev-parse "${GITHUB_REF_NAME:-HEAD}")"
+          docker build \
+            -f ${{ inputs.dockerfile_path }} \
+            -t "ghcr.io/${GITHUB_REPOSITORY_OWNER}/${{ inputs.name }}:${{ inputs.tag }}" \
+            -t "ghcr.io/${GITHUB_REPOSITORY_OWNER}/${{ inputs.name }}:${revision}" \
+            --label "org.opencontainers.image.source=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
+            --label "org.opencontainers.image.created=$(date --iso-8601=seconds)" \
+            --label "org.opencontainers.image.title=${{ inputs.name }}" \
+            --label "org.opencontainers.image.revision=${revision}" \
+            --label "org.opencontainers.image.version=${{ inputs.tag }}" \
+            --label "org.opencontainers.image.licenses=${{ inputs.licenses }}" \
+            --label "org.opencontainers.image.vendor=${{ inputs.vendor }}" \
+            ${{ inputs.build_context }}
+
+      - name: Publish Container images
+        run: docker push "ghcr.io/${GITHUB_REPOSITORY_OWNER}/${{ inputs.name }}" --all-tags
+
+      - name: Get container info
+        id: container_info
+        run: |
+          revision="$(git rev-parse "${GITHUB_REF_NAME:-HEAD}")"
+          image_digest="$(docker inspect "ghcr.io/${GITHUB_REPOSITORY_OWNER}/${{ inputs.name }}:${revision}" --format '{{ index .RepoDigests 0 }}' | awk -F '@' '{ print $2 }')"
+          image_tags="${{ inputs.tag }},$(git rev-parse "${GITHUB_REF_NAME:-HEAD}")"
+          echo "::set-output name=image-digest::${image_digest}"
+          echo "::set-output name=image-tags::${image_tags}"
+
+  sign:
+    runs-on: ubuntu-latest
+    needs: [container]
+
+    permissions:
+      packages: write
+      id-token: write
+
+    env:
+      IMAGE_DIGEST: ${{ needs.container.outputs.image-digest }}
+
+    steps:
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v2.3.0
+
+      - name: Login to ghcr.io
+        uses: docker/login-action@v1.14.1
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Sign image
+        run: |
+          cosign sign "ghcr.io/${GITHUB_REPOSITORY_OWNER}/${{ inputs.name }}@${IMAGE_DIGEST}"
+          echo "::notice title=Verify signature::COSIGN_EXPERIMENTAL=1 cosign verify ghcr.io/${GITHUB_REPOSITORY_OWNER}/${{ inputs.name }}@${IMAGE_DIGEST} | jq '.[0]'"
+          echo "::notice title=Inspect signature bundle::COSIGN_EXPERIMENTAL=1 cosign verify ghcr.io/${GITHUB_REPOSITORY_OWNER}/${{ inputs.name }}@${IMAGE_DIGEST} | jq '.[0].optional.Bundle.Payload.body |= @base64d | .[0].optional.Bundle.Payload.body | fromjson'"
+          echo "::notice title=Inspect certificate::COSIGN_EXPERIMENTAL=1 cosign verify ghcr.io/${GITHUB_REPOSITORY_OWNER}/${{ inputs.name }}@${IMAGE_DIGEST} | jq -r '.[0].optional.Bundle.Payload.body |= @base64d | .[0].optional.Bundle.Payload.body | fromjson | .spec.signature.publicKey.content |= @base64d | .spec.signature.publicKey.content' | openssl x509 -text"
+
+  sbom:
+    runs-on: ubuntu-latest
+    needs: [container]
+
+    permissions:
+      packages: write
+      id-token: write
+
+    env:
+      IMAGE_DIGEST: ${{ needs.container.outputs.image-digest }}
+
+    steps:
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v2.3.0
+
+      - name: Install Syft
+        uses: anchore/sbom-action/download-syft@v0.11.0
+
+      - name: Login to ghcr.io
+        uses: docker/login-action@v1.14.1
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Attach SBOM to image
+        run: |
+          syft "ghcr.io/${GITHUB_REPOSITORY_OWNER}/${{ inputs.name }}@${IMAGE_DIGEST}" -o spdx-json=sbom-spdx.json
+          cosign attest --predicate sbom-spdx.json --type spdx "ghcr.io/${GITHUB_REPOSITORY_OWNER}/${{ inputs.name }}@${IMAGE_DIGEST}"
+          echo "::notice title=Verify SBOM attestation::COSIGN_EXPERIMENTAL=1 cosign verify-attestation ghcr.io/${GITHUB_REPOSITORY_OWNER}/${{ inputs.name }}@${IMAGE_DIGEST} | jq '.payload |= @base64d | .payload | fromjson | select(.predicateType == \"https://spdx.dev/Document\") | .predicate.Data | fromjson'"
+
+  provenance:
+    runs-on: ubuntu-latest
+    needs: [container]
+
+    permissions:
+      packages: write
+      id-token: write
+
+    env:
+      IMAGE_DIGEST: ${{ needs.container.outputs.image-digest }}
+      PROVENANCE_FILE: provenance.att
+
+    steps:
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v2.3.0
+
+      - name: Generate provenance
+        uses: philips-labs/slsa-provenance-action@v0.7.2
+        with:
+          command: generate
+          subcommand: container
+          arguments: --repository "ghcr.io/${GITHUB_REPOSITORY_OWNER}/${{ inputs.name }}" --output-path "${PROVENANCE_FILE}" --digest "${IMAGE_DIGEST}" --tags "${IMAGE_TAGS}"
+        env:
+          COSIGN_EXPERIMENTAL: 0
+          GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+          IMAGE_TAGS: ${{ needs.container.outputs.image-tags }}
+
+      - name: Login to ghcr.io
+        uses: docker/login-action@v1.14.1
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Attach provenance
+        run: |
+          jq '.predicate' "${PROVENANCE_FILE}" > provenance-predicate.att
+          cosign attest --predicate provenance-predicate.att --type slsaprovenance "ghcr.io/${GITHUB_REPOSITORY_OWNER}/${{ inputs.name }}@${IMAGE_DIGEST}"
+          echo "::notice title=Verify provenance attestation::COSIGN_EXPERIMENTAL=1 cosign verify-attestation ghcr.io/${GITHUB_REPOSITORY_OWNER}/${{ inputs.name }}@${IMAGE_DIGEST} | jq '.payload |= @base64d | .payload | fromjson | select(.predicateType == \"https://slsa.dev/provenance/v0.2\")'"
