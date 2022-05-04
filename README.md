@@ -22,12 +22,4 @@ jobs:
       name: my-container
       tag: ${GITHUB_REF_NAME}
       dockerfile_path: path/to/Dockerfile
-
-  # Push to latest
-  container-push-latest:
-    uses: metal-toolbox/container-push/.github/workflows/container-push.yml@main
-    with:
-      name: my-container
-      tag: latest
-      dockerfile_path: path/to/Dockerfile
 ```
