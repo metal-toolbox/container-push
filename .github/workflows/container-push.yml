@@ -46,6 +46,7 @@ jobs:
 
     permissions:
       packages: write
+      contents: read
 
     outputs:
       image-digest: ${{ steps.container_info.outputs.image-digest }}
