@@ -11,6 +11,11 @@ on:
         description: 'Container image tag to push. Normally it will be the GITHUB_REF_NAME env variable'
         required: true
         type: string
+      latest:
+        description: 'Denotes if the `latest` tag should be generated or not'
+        required: false
+        type: boolean
+        default: false
       registry_org:
         description: 'The registry organization to push to'
         default: '${{ github.repository_owner }}'
@@ -78,6 +83,12 @@ jobs:
             --label "org.opencontainers.image.licenses=${{ inputs.licenses }}" \
             --label "org.opencontainers.image.vendor=${{ inputs.vendor }}" \
             ${{ inputs.build_context }}
+      
+      - name: Tag latest
+        run: |
+          revision="$(git rev-parse "${GITHUB_REF_NAME:-HEAD}")"
+          docker tag "ghcr.io/${{ inputs.registry_org }}/${{ inputs.name }}:${revision}" "ghcr.io/${{ inputs.registry_org }}/${{ inputs.name }}:latest"
+        if: ${{ inputs.latest }}
 
       - name: Publish Container images
         run: docker push "ghcr.io/${{ inputs.registry_org }}/${{ inputs.name }}" --all-tags
