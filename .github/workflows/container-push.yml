@@ -115,7 +115,7 @@ jobs:
 
     steps:
       - name: Install cosign
-        uses: sigstore/cosign-installer@v2.7.0
+        uses: sigstore/cosign-installer@v2.8.1
 
       - name: Login to ghcr.io
         uses: docker/login-action@v2.0.0
@@ -144,7 +144,7 @@ jobs:
 
     steps:
       - name: Install cosign
-        uses: sigstore/cosign-installer@v2.7.0
+        uses: sigstore/cosign-installer@v2.8.1
 
       - name: Install Syft
         uses: anchore/sbom-action/download-syft@v0.13.0
@@ -176,7 +176,7 @@ jobs:
 
     steps:
       - name: Install cosign
-        uses: sigstore/cosign-installer@v2.7.0
+        uses: sigstore/cosign-installer@v2.8.1
 
       - name: Login to ghcr.io
         uses: docker/login-action@v2.0.0
