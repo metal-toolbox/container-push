@@ -186,7 +186,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Generate provenance
-        uses: philips-labs/slsa-provenance-action@v0.8.0
+        uses: philips-labs/slsa-provenance-action@v0.8.2
         with:
           command: generate
           subcommand: container
