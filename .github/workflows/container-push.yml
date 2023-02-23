@@ -90,7 +90,6 @@ jobs:
           labels: |
             org.opencontainers.image.source=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}
             org.opencontainers.image.title=${{ inputs.name }}
-            org.opencontainers.image.revision=${revision}
             org.opencontainers.image.version=${{ inputs.tag }}
             org.opencontainers.image.licenses=${{ inputs.licenses }}
             org.opencontainers.image.vendor=${{ inputs.vendor }}
@@ -107,13 +106,11 @@ jobs:
 
       - name: Fetch container locally
         run: |
-          revision="$(git rev-parse HEAD)"
-          docker pull "ghcr.io/${{ inputs.registry_org }}/${{ inputs.name }}:${revision}"
+          docker pull "ghcr.io/${{ inputs.registry_org }}/${{ inputs.name }}:${{ inputs.tag }}"
 
       - name: Tag latest
         run: |
-          revision="$(git rev-parse HEAD)"
-          docker tag "ghcr.io/${{ inputs.registry_org }}/${{ inputs.name }}:${revision}" "ghcr.io/${{ inputs.registry_org }}/${{ inputs.name }}:latest"
+          docker tag "ghcr.io/${{ inputs.registry_org }}/${{ inputs.name }}:${{ inputs.tag }}" "ghcr.io/${{ inputs.registry_org }}/${{ inputs.name }}:latest"
         if: ${{ inputs.latest }}
 
       - name: Publish Container images (latest)
@@ -123,8 +120,7 @@ jobs:
       - name: Get container info
         id: container_info
         run: |
-          revision="$(git rev-parse HEAD)"
-          image_digest="$(docker inspect "ghcr.io/${{ inputs.registry_org }}/${{ inputs.name }}:${revision}" --format '{{ index .RepoDigests 0 }}' | awk -F '@' '{ print $2 }')"
+          image_digest="$(docker inspect "ghcr.io/${{ inputs.registry_org }}/${{ inputs.name }}:${{ inputs.tag }}" --format '{{ index .RepoDigests 0 }}' | awk -F '@' '{ print $2 }')"
           image_tags="${{ inputs.tag }},$(git rev-parse HEAD)"
           echo "::set-output name=image-digest::${image_digest}"
           echo "::set-output name=image-tags::${image_tags}"
