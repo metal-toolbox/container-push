@@ -121,7 +121,7 @@ jobs:
         id: container_info
         run: |
           image_digest="$(docker inspect "ghcr.io/${{ inputs.registry_org }}/${{ inputs.name }}:${{ inputs.tag }}" --format '{{ index .RepoDigests 0 }}' | awk -F '@' '{ print $2 }')"
-          image_tags="${{ inputs.tag }},$(git rev-parse HEAD)"
+          image_tags="${{ inputs.tag }},sha-$(git rev-parse HEAD)"
           echo "::set-output name=image-digest::${image_digest}"
           echo "::set-output name=image-tags::${image_tags}"
 
