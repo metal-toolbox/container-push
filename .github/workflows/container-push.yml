@@ -41,6 +41,11 @@ on:
         default: 'Equinix, Inc.'
         required: false
         type: string
+      platforms:
+        description: 'The platforms to build the container for.'
+        default: 'linux/amd64'
+        required: false
+        type: string
 
 env:
   COSIGN_EXPERIMENTAL: 1
@@ -68,30 +73,52 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build container images
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: ghcr.io/${{ inputs.registry_org }}/${{ inputs.name }}
+          tags: |
+            type=raw,value=${{ inputs.tag }}
+            type=sha,format=long
+          labels: |
+            org.opencontainers.image.source=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}
+            org.opencontainers.image.title=${{ inputs.name }}
+            org.opencontainers.image.revision=${revision}
+            org.opencontainers.image.version=${{ inputs.tag }}
+            org.opencontainers.image.licenses=${{ inputs.licenses }}
+            org.opencontainers.image.vendor=${{ inputs.vendor }}
+
+      - name: Build container images and push
+        uses: docker/build-push-action@v4
+        with:
+          context: ${{ inputs.build_context }}
+          file: ${{ inputs.dockerfile_path }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          push: true
+          platforms: ${{ inputs.platforms }}
+
+      - name: Fetch container locally
         run: |
           revision="$(git rev-parse "${GITHUB_REF_NAME:-HEAD}")"
-          docker build \
-            -f ${{ inputs.dockerfile_path }} \
-            -t "ghcr.io/${{ inputs.registry_org }}/${{ inputs.name }}:${{ inputs.tag }}" \
-            -t "ghcr.io/${{ inputs.registry_org }}/${{ inputs.name }}:${revision}" \
-            --label "org.opencontainers.image.source=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
-            --label "org.opencontainers.image.created=$(date --iso-8601=seconds)" \
-            --label "org.opencontainers.image.title=${{ inputs.name }}" \
-            --label "org.opencontainers.image.revision=${revision}" \
-            --label "org.opencontainers.image.version=${{ inputs.tag }}" \
-            --label "org.opencontainers.image.licenses=${{ inputs.licenses }}" \
-            --label "org.opencontainers.image.vendor=${{ inputs.vendor }}" \
-            ${{ inputs.build_context }}
-      
+          docker pull "ghcr.io/${{ inputs.registry_org }}/${{ inputs.name }}:${revision}"
+
       - name: Tag latest
         run: |
           revision="$(git rev-parse "${GITHUB_REF_NAME:-HEAD}")"
           docker tag "ghcr.io/${{ inputs.registry_org }}/${{ inputs.name }}:${revision}" "ghcr.io/${{ inputs.registry_org }}/${{ inputs.name }}:latest"
         if: ${{ inputs.latest }}
 
-      - name: Publish Container images
+      - name: Publish Container images (latest)
         run: docker push "ghcr.io/${{ inputs.registry_org }}/${{ inputs.name }}" --all-tags
+        if: ${{ inputs.latest }}
 
       - name: Get container info
         id: container_info
