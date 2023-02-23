@@ -107,12 +107,12 @@ jobs:
 
       - name: Fetch container locally
         run: |
-          revision="$(git rev-parse "${GITHUB_REF_NAME:-HEAD}")"
+          revision="$(git rev-parse HEAD)"
           docker pull "ghcr.io/${{ inputs.registry_org }}/${{ inputs.name }}:${revision}"
 
       - name: Tag latest
         run: |
-          revision="$(git rev-parse "${GITHUB_REF_NAME:-HEAD}")"
+          revision="$(git rev-parse HEAD)"
           docker tag "ghcr.io/${{ inputs.registry_org }}/${{ inputs.name }}:${revision}" "ghcr.io/${{ inputs.registry_org }}/${{ inputs.name }}:latest"
         if: ${{ inputs.latest }}
 
@@ -123,9 +123,9 @@ jobs:
       - name: Get container info
         id: container_info
         run: |
-          revision="$(git rev-parse "${GITHUB_REF_NAME:-HEAD}")"
+          revision="$(git rev-parse HEAD)"
           image_digest="$(docker inspect "ghcr.io/${{ inputs.registry_org }}/${{ inputs.name }}:${revision}" --format '{{ index .RepoDigests 0 }}' | awk -F '@' '{ print $2 }')"
-          image_tags="${{ inputs.tag }},$(git rev-parse "${GITHUB_REF_NAME:-HEAD}")"
+          image_tags="${{ inputs.tag }},$(git rev-parse HEAD)"
           echo "::set-output name=image-digest::${image_digest}"
           echo "::set-output name=image-tags::${image_tags}"
 
