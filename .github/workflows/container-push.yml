@@ -96,6 +96,7 @@ jobs:
             org.opencontainers.image.vendor=${{ inputs.vendor }}
 
       - name: Build container images and push
+        id: docker_build
         uses: docker/build-push-action@v4
         with:
           context: ${{ inputs.build_context }}
@@ -105,16 +106,11 @@ jobs:
           push: true
           platforms: ${{ inputs.platforms }}
 
-      - name: Fetch container locally
-        run: |
-          docker pull "ghcr.io/${{ inputs.registry_org }}/${{ inputs.name }}:${{ inputs.tag }}"
-
       - name: Get container info
         id: container_info
         run: |
-          image_digest="$(docker inspect "ghcr.io/${{ inputs.registry_org }}/${{ inputs.name }}:${{ inputs.tag }}" --format '{{ index .RepoDigests 0 }}' | awk -F '@' '{ print $2 }')"
           image_tags="${{ inputs.tag }},sha-$(git rev-parse HEAD)"
-          echo "::set-output name=image-digest::${image_digest}"
+          echo "::set-output name=image-digest::${{ steps.docker_build.outputs.digest }}"
           echo "::set-output name=image-tags::${image_tags}"
 
   sign:
@@ -179,7 +175,9 @@ jobs:
 
   provenance:
     runs-on: ubuntu-latest
-    needs: [container]
+    needs:
+    - sign
+    - sbom
 
     permissions:
       packages: write
