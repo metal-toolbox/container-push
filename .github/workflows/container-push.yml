@@ -158,7 +158,7 @@ jobs:
         uses: sigstore/cosign-installer@v3.0.1
 
       - name: Install Syft
-        uses: anchore/sbom-action/download-syft@v0.13.3
+        uses: anchore/sbom-action/download-syft@v0.13.4
 
       - name: Login to ghcr.io
         uses: docker/login-action@v2.1.0
