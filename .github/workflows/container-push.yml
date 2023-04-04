@@ -79,37 +79,52 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
 
+      - name: Get input with Github Environment Variable reference
+        id: get_inputs
+        run: |
+          echo "::set-output name=name::${{ inputs.name }}"
+          echo "::set-output name=tag::${{ inputs.tag }}"
+          echo "::set-output name=latest::${{ inputs.latest }}"
+          echo "::set-output name=registry_org::${{ inputs.registry_org }}"
+          echo "::set-output name=dockerfile_path::${{ inputs.dockerfile_path }}"
+          echo "::set-output name=build_context::${{ inputs.build_context }}"
+          echo "::set-output name=licenses::${{ inputs.licenses }}"
+          echo "::set-output name=vendor::${{ inputs.vendor }}"
+          echo "::set-output name=platforms::${{ inputs.platforms }}"
+          echo "::set-output name=github_server_url::${GITHUB_SERVER_URL}"
+          echo "::set-output name=github_repository::${GITHUB_REPOSITORY}"
+
       - name: Docker metadata
         id: meta
         uses: docker/metadata-action@v4
         with:
-          images: ghcr.io/${{ inputs.registry_org }}/${{ inputs.name }}
+          images: ghcr.io/${{ steps.get_inputs.outputs.registry_org }}/${{ steps.get_inputs.outputs.name }}
           tags: |
-            type=raw,value=${{ inputs.tag }}
+            type=raw,value=${{ steps.get_inputs.outputs.tag}}
             type=sha,format=long
-            type=raw,value=latest,enable=${{ inputs.latest }}
+            type=raw,value=latest,enable=${{ steps.get_inputs.outputs.latest }}
           labels: |
-            org.opencontainers.image.source=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}
-            org.opencontainers.image.title=${{ inputs.name }}
-            org.opencontainers.image.version=${{ inputs.tag }}
-            org.opencontainers.image.licenses=${{ inputs.licenses }}
-            org.opencontainers.image.vendor=${{ inputs.vendor }}
 
+            org.opencontainers.image.source=${{ steps.get_inputs.outputs.github_server_url }}/${{ steps.get_inputs.outputs.github_repository }}
+            org.opencontainers.image.title=${{ steps.get_inputs.outputs.name }}
+            org.opencontainers.image.version=${{ steps.get_inputs.outputs.tag }}
+            org.opencontainers.image.licenses=${{ steps.get_inputs.outputs.licenses }}
+            org.opencontainers.image.vendor=${{ steps.get_inputs.outputs.vendor }}
       - name: Build container images and push
         id: docker_build
         uses: docker/build-push-action@v4
         with:
-          context: ${{ inputs.build_context }}
-          file: ${{ inputs.dockerfile_path }}
+          context: ${{ steps.get_inputs.outputs.build_context }}
+          file: ${{ steps.get_inputs.outputs.dockerfile_path }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           push: true
-          platforms: ${{ inputs.platforms }}
+          platforms: ${{ steps.get_inputs.outputs.platforms }}
 
       - name: Get container info
         id: container_info
         run: |
-          image_tags="${{ inputs.tag }},sha-$(git rev-parse HEAD)"
+          image_tags="${{ steps.get_inputs.outputs.tag }},sha-$(git rev-parse HEAD)"
           echo "::set-output name=image-digest::${{ steps.docker_build.outputs.digest }}"
           echo "::set-output name=image-tags::${image_tags}"
 
@@ -141,7 +156,6 @@ jobs:
           echo "::notice title=Verify signature::COSIGN_EXPERIMENTAL=1 cosign verify ghcr.io/${{ inputs.registry_org }}/${{ inputs.name }}@${IMAGE_DIGEST} | jq '.[0]'"
           echo "::notice title=Inspect signature bundle::COSIGN_EXPERIMENTAL=1 cosign verify ghcr.io/${{ inputs.registry_org }}/${{ inputs.name }}@${IMAGE_DIGEST} | jq '.[0].optional.Bundle.Payload.body |= @base64d | .[0].optional.Bundle.Payload.body | fromjson'"
           echo "::notice title=Inspect certificate::COSIGN_EXPERIMENTAL=1 cosign verify ghcr.io/${{ inputs.registry_org }}/${{ inputs.name }}@${IMAGE_DIGEST} | jq -r '.[0].optional.Bundle.Payload.body |= @base64d | .[0].optional.Bundle.Payload.body | fromjson | .spec.signature.publicKey.content |= @base64d | .spec.signature.publicKey.content' | openssl x509 -text"
-
   sbom:
     runs-on: ubuntu-latest
     needs: [container]
