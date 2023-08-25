@@ -82,17 +82,17 @@ jobs:
       - name: Get input with Github Environment Variable reference
         id: get_inputs
         run: |
-          echo "::set-output name=name::${{ inputs.name }}"
-          echo "::set-output name=tag::${{ inputs.tag }}"
-          echo "::set-output name=latest::${{ inputs.latest }}"
-          echo "::set-output name=registry_org::${{ inputs.registry_org }}"
-          echo "::set-output name=dockerfile_path::${{ inputs.dockerfile_path }}"
-          echo "::set-output name=build_context::${{ inputs.build_context }}"
-          echo "::set-output name=licenses::${{ inputs.licenses }}"
-          echo "::set-output name=vendor::${{ inputs.vendor }}"
-          echo "::set-output name=platforms::${{ inputs.platforms }}"
-          echo "::set-output name=github_server_url::${GITHUB_SERVER_URL}"
-          echo "::set-output name=github_repository::${GITHUB_REPOSITORY}"
+          echo "name=${{ inputs.name }}" >> $GITHUB_OUTPUT
+          echo "tag=${{ inputs.tag }}" >> $GITHUB_OUTPUT
+          echo "latest=${{ inputs.latest }}" >> $GITHUB_OUTPUT
+          echo "registry_org=${{ inputs.registry_org }}" >> $GITHUB_OUTPUT
+          echo "dockerfile_path=${{ inputs.dockerfile_path }}" >> $GITHUB_OUTPUT
+          echo "build_context=${{ inputs.build_context }}" >> $GITHUB_OUTPUT
+          echo "licenses=${{ inputs.licenses }}" >> $GITHUB_OUTPUT
+          echo "vendor=${{ inputs.vendor }}" >> $GITHUB_OUTPUT
+          echo "platforms=${{ inputs.platforms }}" >> $GITHUB_OUTPUT
+          echo "github_server_url=${GITHUB_SERVER_URL}" >> $GITHUB_OUTPUT
+          echo "github_repository=${GITHUB_REPOSITORY}" >> $GITHUB_OUTPUT
 
       - name: Docker metadata
         id: meta
@@ -125,8 +125,8 @@ jobs:
         id: container_info
         run: |
           image_tags="${{ steps.get_inputs.outputs.tag }},sha-$(git rev-parse HEAD)"
-          echo "::set-output name=image-digest::${{ steps.docker_build.outputs.digest }}"
-          echo "::set-output name=image-tags::${image_tags}"
+          echo "image-digest=${{ steps.docker_build.outputs.digest }}" >> $GITHUB_OUTPUT
+          echo "image-tags=${image_tags}" >> $GITHUB_OUTPUT
 
   sign:
     runs-on: ubuntu-latest
