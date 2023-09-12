@@ -112,7 +112,7 @@ jobs:
             org.opencontainers.image.vendor=${{ steps.get_inputs.outputs.vendor }}
       - name: Build container images and push
         id: docker_build
-        uses: docker/build-push-action@v4
+        uses: docker/build-push-action@v5
         with:
           context: ${{ steps.get_inputs.outputs.build_context }}
           file: ${{ steps.get_inputs.outputs.dockerfile_path }}
