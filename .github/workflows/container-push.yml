@@ -46,6 +46,15 @@ on:
         default: 'linux/amd64'
         required: false
         type: string
+      checkout_ref:
+        description: 'The ref to checkout before building the container.'
+        default: '${{ github.ref }}'
+        required: false
+        type: string
+      prepare_command:
+        description: 'The command to run before building the container.'
+        required: false
+        type: string
 
 env:
   COSIGN_EXPERIMENTAL: 1
@@ -63,8 +72,33 @@ jobs:
       image-tags: ${{ steps.container_info.outputs.image-tags }}
 
     steps:
+      - name: Get input with Github Environment Variable reference
+        id: get_inputs
+        run: |
+          echo "name=${{ inputs.name }}" >> $GITHUB_OUTPUT
+          echo "tag=${{ inputs.tag }}" >> $GITHUB_OUTPUT
+          echo "latest=${{ inputs.latest }}" >> $GITHUB_OUTPUT
+          echo "registry_org=${{ inputs.registry_org }}" >> $GITHUB_OUTPUT
+          echo "dockerfile_path=${{ inputs.dockerfile_path }}" >> $GITHUB_OUTPUT
+          echo "build_context=${{ inputs.build_context }}" >> $GITHUB_OUTPUT
+          echo "licenses=${{ inputs.licenses }}" >> $GITHUB_OUTPUT
+          echo "vendor=${{ inputs.vendor }}" >> $GITHUB_OUTPUT
+          echo "platforms=${{ inputs.platforms }}" >> $GITHUB_OUTPUT
+          echo "github_server_url=$GITHUB_SERVER_URL" >> $GITHUB_OUTPUT
+          echo "github_repository=$GITHUB_REPOSITORY" >> $GITHUB_OUTPUT
+          echo "checkout_ref=${{ inputs.checkout_ref }}" >> $GITHUB_OUTPUT
+          echo "prepare_command=${{ inputs.prepare_command }}" >> $GITHUB_OUTPUT
+
       - name: Checkout
         uses: actions/checkout@v4.1.1
+        with:
+          ref: ${{ steps.get_inputs.outputs.checkout_ref }}
+      
+      - name: Prepare
+        run: |
+          if [ -n "${{ steps.get_inputs.outputs.prepare_command }}" ]; then
+            eval "${{ steps.get_inputs.outputs.prepare_command }}"
+          fi
 
       - name: Login to ghcr.io
         uses: docker/login-action@v3.0.0
@@ -79,20 +113,7 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Get input with Github Environment Variable reference
-        id: get_inputs
-        run: |
-          echo "name=${{ inputs.name }}" >> $GITHUB_OUTPUT
-          echo "tag=${{ inputs.tag }}" >> $GITHUB_OUTPUT
-          echo "latest=${{ inputs.latest }}" >> $GITHUB_OUTPUT
-          echo "registry_org=${{ inputs.registry_org }}" >> $GITHUB_OUTPUT
-          echo "dockerfile_path=${{ inputs.dockerfile_path }}" >> $GITHUB_OUTPUT
-          echo "build_context=${{ inputs.build_context }}" >> $GITHUB_OUTPUT
-          echo "licenses=${{ inputs.licenses }}" >> $GITHUB_OUTPUT
-          echo "vendor=${{ inputs.vendor }}" >> $GITHUB_OUTPUT
-          echo "platforms=${{ inputs.platforms }}" >> $GITHUB_OUTPUT
-          echo "github_server_url=${GITHUB_SERVER_URL}" >> $GITHUB_OUTPUT
-          echo "github_repository=${GITHUB_REPOSITORY}" >> $GITHUB_OUTPUT
+
 
       - name: Docker metadata
         id: meta
