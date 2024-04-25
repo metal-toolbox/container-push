@@ -90,7 +90,7 @@ jobs:
           echo "prepare_command=${{ inputs.prepare_command }}" >> $GITHUB_OUTPUT
 
       - name: Checkout
-        uses: actions/checkout@v4.1.1
+        uses: actions/checkout@v4.1.4
         with:
           ref: ${{ steps.get_inputs.outputs.checkout_ref }}
       
