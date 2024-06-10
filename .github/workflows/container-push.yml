@@ -204,6 +204,6 @@ jobs:
 
       - name: Attach SBOM to image
         run: |
-          syft "ghcr.io/${{ inputs.registry_org }}/${{ inputs.name }}@${IMAGE_DIGEST}" -o spdx-json=sbom-spdx.json
+          syft --platform ${{ inputs.platforms }} "ghcr.io/${{ inputs.registry_org }}/${{ inputs.name }}@${IMAGE_DIGEST}" -o spdx-json=sbom-spdx.json
           cosign attest -y --predicate sbom-spdx.json --type spdx "ghcr.io/${{ inputs.registry_org }}/${{ inputs.name }}@${IMAGE_DIGEST}"
           echo "::notice title=Verify SBOM attestation::COSIGN_EXPERIMENTAL=1 cosign verify-attestation ghcr.io/${{ inputs.registry_org }}/${{ inputs.name }}@${IMAGE_DIGEST} | jq '.payload |= @base64d | .payload | fromjson | select(.predicateType == \"https://spdx.dev/Document\") | .predicate.Data | fromjson'"
