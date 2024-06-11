@@ -55,6 +55,11 @@ on:
         description: 'The command to run before building the container.'
         required: false
         type: string
+      sbom:
+        description: 'Whether to generate SBOM or not'
+        required: false
+        type: boolean
+        default: true
 
 env:
   COSIGN_EXPERIMENTAL: 1
@@ -88,6 +93,7 @@ jobs:
           echo "github_repository=$GITHUB_REPOSITORY" >> $GITHUB_OUTPUT
           echo "checkout_ref=${{ inputs.checkout_ref }}" >> $GITHUB_OUTPUT
           echo "prepare_command=${{ inputs.prepare_command }}" >> $GITHUB_OUTPUT
+          echo "sbom=${{ inputs.sbom }}" >> $GITHUB_OUTPUT
 
       - name: Checkout
         uses: actions/checkout@v4.1.6
@@ -140,6 +146,7 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           push: true
+          sbom: ${{ steps.get_inputs.outputs.sbom }
           platforms: ${{ steps.get_inputs.outputs.platforms }}
 
       - name: Get container info
