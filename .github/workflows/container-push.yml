@@ -146,7 +146,7 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           push: true
-          sbom: ${{ steps.get_inputs.outputs.sbom }
+          sbom: ${{ steps.get_inputs.outputs.sbom }}
           platforms: ${{ steps.get_inputs.outputs.platforms }}
 
       - name: Get container info
