@@ -169,7 +169,7 @@ jobs:
 
     steps:
       - name: Install cosign
-        uses: sigstore/cosign-installer@v3.5.0
+        uses: sigstore/cosign-installer@v3.7.0
 
       - name: Login to ghcr.io
         uses: docker/login-action@v3.3.0
