@@ -96,7 +96,7 @@ jobs:
           echo "sbom=${{ inputs.sbom }}" >> $GITHUB_OUTPUT
 
       - name: Checkout
-        uses: actions/checkout@v4.1.7
+        uses: actions/checkout@v4.2.2
         with:
           ref: ${{ steps.get_inputs.outputs.checkout_ref }}
       
